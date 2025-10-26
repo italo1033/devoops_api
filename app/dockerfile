@@ -1,6 +1,5 @@
 FROM python:3.11-slim
 
-# Define o diretório de trabalho
 WORKDIR /app
 
 # Instala dependências necessárias
@@ -17,14 +16,13 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia toda a aplicação
+# Copia toda a aplicação e o script wait-for-db
 COPY . .
 
-# Garante permissão de execução ao script
-RUN chmod +x /app/wait-for-db.sh
+# Torna os scripts executáveis
+RUN chmod +x /app/wait-for-db.sh /app/init-db.sh || true
 
-# Expõe a porta da aplicação
 EXPOSE 8000
 
-# Comando para esperar o banco e iniciar o servidor
+# Comando para esperar o banco e iniciar a aplicação
 CMD ["./wait-for-db.sh", "db", "uvicorn", "main:app", "--host=0.0.0.0", "--port=8000"]
