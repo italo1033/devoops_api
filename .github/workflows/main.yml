@@ -19,19 +19,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
         with:
-          node-version: 22
+          python-version: '3.11'
 
-      - name: Enable corepack
-        run: corepack enable
+      - name: Install pip and wheel (safety)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
 
-      - name: Install dependencies
-        run: yarn
+      - name: Install requirements
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install --no-cache-dir -r requirements.txt
+          else
+            echo "requirements.txt não encontrado"
+            exit 1
+          fi
 
       - name: Run tests
-        run: yarn test
+        # assumindo runner linux; executa o script ./test.bad
+        run: |
+          chmod +x ./test.bad || true
+          ./test.bad
 
       - name: Generate tag
         id: generate_tag
@@ -39,16 +49,16 @@ jobs:
           SHA=$(echo $GITHUB_SHA | head -c7)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-      - name: Login Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker Image
+      - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/italo-santos:${{ steps.generate_tag.outputs.sha }} .
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/italo-santos:${{ steps.generate_tag.outputs.sha }} ./app
 
-      - name: Push Docker Image
+      - name: Push Docker image
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/italo-santos:${{ steps.generate_tag.outputs.sha }}
