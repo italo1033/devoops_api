@@ -86,7 +86,7 @@ jobs:
             export TAG=${{ steps.tag.outputs.sha }}
 
             # Atualiza imagem
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml pull 
 
             # Sobe serviços com rebuild
             docker compose -f docker-compose.prod.yml up -d --build
