@@ -13,6 +13,7 @@ jobs:
   build:
     name: Build and Push
     runs-on: ubuntu-latest
+
     outputs:
       docker_tag: ${{ steps.generate_tag.outputs.sha }}
 
@@ -49,16 +50,25 @@ jobs:
           SHA=$(echo $GITHUB_SHA | head -c7)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
+      # LOGIN DOCKER HUB
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DEV0OPS }}
 
+      # BUILD DA IMAGEM (REPOSITÓRIO CORRETO)
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/italo-santos:${{ steps.generate_tag.outputs.sha }} ./app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.generate_tag.outputs.sha }} ./app
 
+      # PUSH DA IMAGEM
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/italo-santos:${{ steps.generate_tag.outputs.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.generate_tag.outputs.sha }}
+
+      # LOGOUT
+      - name: Logout Docker Hub
+        uses: docker/login-action@v3
+        with:
+          logout: true
