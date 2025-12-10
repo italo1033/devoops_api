@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:16
@@ -12,7 +14,7 @@ services:
       - app-network
 
   api:
-    image: ${DOCKERHUB_USERNAME}/devopps:${TAG}
+    image: italo1033/devopps:${TAG}
     container_name: devoops_api
     env_file:
       - .env
