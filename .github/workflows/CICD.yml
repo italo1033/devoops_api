@@ -11,69 +11,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout do código
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Instalar Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
+      # 3. Instalar dependências
       - name: Install dependencies
         run: |
           pip install -r app/requirements.txt
 
+      # 4. Rodar testes
       - name: Run tests
         run: |
           chmod +x ./test.sh
           ./test.sh
 
+      # 5. Gerar TAG baseado no SHA
       - name: Generate tag
         id: tag
         run: echo "sha=$(echo $GITHUB_SHA | head -c7)" >> $GITHUB_OUTPUT
 
+      # 6. Login no Docker Hub
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 7. Build da imagem Docker
       - name: Build image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.tag.outputs.sha }} ./app
 
+      # 8. Push da imagem para o Docker Hub
       - name: Push image
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.tag.outputs.sha }}
 
-      # -------------------------
-      # DEPLOY NO SERVIDOR
-      # -------------------------
+      # 9. Deploy na VPS via SSH
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.0
-        env:
-          TAG: ${{ steps.tag.outputs.sha }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: "TAG,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN"
-
           script: |
             cd /home/ubuntu/devoops_api
             git pull
+            
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            export TAG=${{ steps.tag.outputs.sha }}
 
-            echo "--- LOGIN DOCKER HUB ---"
-            docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_TOKEN"
+            echo "USANDO IMAGEM: $DOCKERHUB_USERNAME/devopps:$TAG"
 
-            echo "--- PULL IMAGEM ---"
+            docker login -u $DOCKERHUB_USERNAME -p ${{ secrets.DOCKERHUB_TOKEN }}
+
             docker compose -f docker-compose.prod.yml pull
-
-            echo "--- UP NOVA VERSÃO ---"
             docker compose -f docker-compose.prod.yml up -d
-
-            echo "--- CLEANUP ---"
             docker system prune -af
