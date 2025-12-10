@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
@@ -46,18 +46,34 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.tag.outputs.sha }}
 
+      # -------------------------
+      # DEPLOY NO SERVIDOR
+      # -------------------------
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          TAG: ${{ steps.tag.outputs.sha }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: "TAG,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN"
+
           script: |
             cd /home/ubuntu/devoops_api
             git pull
 
-            export TAG=${{ steps.tag.outputs.sha }}
+            echo "--- LOGIN DOCKER HUB ---"
+            docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_TOKEN"
 
+            echo "--- PULL IMAGEM ---"
             docker compose -f docker-compose.prod.yml pull
+
+            echo "--- UP NOVA VERSÃO ---"
             docker compose -f docker-compose.prod.yml up -d
+
+            echo "--- CLEANUP ---"
             docker system prune -af
