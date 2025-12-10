@@ -3,3 +3,8 @@ uvicorn
 psycopg2-binary
 sqlalchemy
 pydantic-settings
+pytest
+httpx
+sqlalchemy
+sqlalchemy-utils
+psycopg2-binary
