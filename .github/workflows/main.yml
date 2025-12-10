@@ -31,10 +31,10 @@ jobs:
 
       - name: Install requirements
         run: |
-          if [ -f requirements.txt ]; then
-            pip install --no-cache-dir -r requirements.txt
+          if [ -f app/requirements.txt ]; then
+            pip install --no-cache-dir -r app/requirements.txt
           else
-            echo "requirements.txt não encontrado"
+            echo "app/requirements.txt não encontrado"
             exit 1
           fi
 
