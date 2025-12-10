@@ -6,8 +6,76 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    outputs:
+      server_ip: ${{ steps.terraform-apply.outputs.server_ip }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::235831254395:role/devoops_terraform"
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: "sa-east-1"
+
+      - name: Read destroy configuration
+        id: read-destroy-config
+        run: |
+          DESTROY="$(jq -r '.prod' ./terraform/destroy_config.json)"
+          echo "destroy=$(echo $DESTROY)" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        run: |
+          cd terraform && terraform init \
+            -backend-config="bucket=italo1033-sa-east-1-terraform-statefile" \
+            -backend-config="key=${{ github.event.repository.name }}" \
+            -backend-config="region=sa-east-1" \
+            -backend-config="dynamodb_table=italo1033-sa-east-1-terraform-lock"
+
+      - name: Terraform Validate
+        run: cd terraform && terraform validate
+
+      - name: Terraform Destroy
+        if: steps.read-destroy-config.outputs.destroy == 'true'
+        id: terraform-destroy
+        run: cd terraform &&
+          terraform workspace select prod || terraform workspace new prod &&
+          terraform destroy -var-file="./envs/prod/terraform.tfvars" -auto-approve
+
+      - name: Terraform Plan
+        if: steps.read-destroy-config.outputs.destroy != 'true'
+        id: terraform-plan
+        run: cd terraform &&
+          terraform workspace select prod || terraform workspace new prod &&
+          terraform plan -var-file="./envs/prod/terraform.tfvars" -out="prod.plan"
+
+      - name: Terraform Apply
+        if: steps.read-destroy-config.outputs.destroy != 'true'
+        id: terraform-apply
+        run: cd terraform &&
+          terraform workspace select prod || terraform workspace new prod &&
+          terraform apply "prod.plan" &&
+          echo "server_ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+
   build:
+    needs: terraform
     runs-on: ubuntu-latest
 
     steps:
