@@ -28,12 +28,12 @@ jobs:
         with:
           terraform_version: 1.8.3
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: "arn:aws:iam::235831254395:role/devoops_terraform"
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
-          aws-region: "us-east-2"   # Ajustado para a região do bucket
+          aws-region: "us-east-2"
 
       - name: Read destroy configuration
         id: read-destroy-config
@@ -43,43 +43,43 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cd terraform && terraform init \
+          terraform -chdir=terraform init \
             -backend-config="bucket=italo1033-sa-east-1-terraform-statefile" \
             -backend-config="key=${{ github.event.repository.name }}" \
-            -backend-config="region=us-east-2" \   # Ajustado
+            -backend-config="region=us-east-2" \
             -backend-config="dynamodb_table=italo1033-sa-east-1-terraform-lock"
 
       - name: Terraform Validate
-        run: cd terraform && terraform validate
+        run: terraform -chdir=terraform validate
 
       - name: Terraform Destroy
         if: steps.read-destroy-config.outputs.destroy == 'true'
         id: terraform-destroy
-        run: cd terraform &&
-          terraform workspace select prod || terraform workspace new prod &&
-          terraform destroy -var-file="./envs/prod/terraform.tfvars" -auto-approve
+        run: |
+          terraform -chdir=terraform workspace select prod || terraform -chdir=terraform workspace new prod
+          terraform -chdir=terraform destroy -var-file="./envs/prod/terraform.tfvars" -auto-approve
 
       - name: Terraform Plan
         if: steps.read-destroy-config.outputs.destroy != 'true'
         id: terraform-plan
-        run: cd terraform &&
-          terraform workspace select prod || terraform workspace new prod &&
-          terraform plan -var-file="./envs/prod/terraform.tfvars" -out="prod.plan"
+        run: |
+          terraform -chdir=terraform workspace select prod || terraform -chdir=terraform workspace new prod
+          terraform -chdir=terraform plan -var-file="./envs/prod/terraform.tfvars" -out="prod.plan"
 
       - name: Terraform Apply
         if: steps.read-destroy-config.outputs.destroy != 'true'
         id: terraform-apply
-        run: cd terraform &&
-          terraform workspace select prod || terraform workspace new prod &&
-          terraform apply "prod.plan" &&
-          echo "server_ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+        run: |
+          terraform -chdir=terraform workspace select prod || terraform -chdir=terraform workspace new prod
+          terraform -chdir=terraform apply -auto-approve "prod.plan"
+          echo "server_ip=$(terraform -chdir=terraform output -raw public_ip)" >> $GITHUB_OUTPUT
 
   build:
     needs: terraform
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
@@ -105,11 +105,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build image
+      - name: Build Docker image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.tag.outputs.sha }} ./app
 
-      - name: Push image
+      - name: Push Docker image
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devopps:${{ steps.tag.outputs.sha }}
 
