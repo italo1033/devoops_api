@@ -31,7 +31,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: "arn:aws:iam::235831254395:role/devoops_terraform"
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: "us-east-2"
 
@@ -44,10 +44,10 @@ jobs:
       - name: Terraform Init
         run: |
           terraform -chdir=terraform init \
-            -backend-config="bucket=italo1033-sa-east-1-terraform-statefile" \
+            -backend-config="bucket=${{ secrets.BUCKET_SECRET }}" \
             -backend-config="key=${{ github.event.repository.name }}" \
             -backend-config="region=us-east-2" \
-            -backend-config="dynamodb_table=italo1033-sa-east-1-terraform-lock"
+            -backend-config="dynamodb_table=${{ secrets.DYNAMODB }}"
 
       - name: Terraform Validate
         run: terraform -chdir=terraform validate
