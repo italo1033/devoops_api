@@ -19,6 +19,26 @@ on:
         type: string
         required: true
 
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+      aws-assume-role-arn:
+        description: "AWS role ARN to assume"
+        required: true
+      aws-region:
+        description: "AWS Region"
+        required: true
+        default: "us-east-1"
+      aws-statefile-s3-bucket:
+        description: "S3 bucket for Terraform state"
+        required: true
+      aws-lock-dynamodb-table:
+        description: "DynamoDB table for Terraform lock"
+        required: true
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
